@@ -1,0 +1,7 @@
+---
+all:
+  hosts:
+    192.168.1.246
+  vars:
+    ansible_user: packer
+    ansible_ssh_extra_args: -o "StrictHostKeyChecking=no"

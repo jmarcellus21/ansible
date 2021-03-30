@@ -1,0 +1,24 @@
+---
+# playbook to configure packer generated hosts
+- name: First Time Configuration
+  hosts: all
+
+  tasks:
+  # - name: sample task
+  #   ansible.builtin.shell: 
+  #     cmd: hostname
+
+  - name: Upgrade all packages to the latest version
+    apt:
+      name: "*"
+      state: latest
+      update_cache: yes
+    become: yes
+
+  - name: Install standard utilities
+    apt:
+      name:
+      - vim
+      - mlocate
+      - bash-completion
+    become: yes
