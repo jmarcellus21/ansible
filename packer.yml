@@ -22,3 +22,7 @@
       - mlocate
       - bash-completion
     become: yes
+
+  // add timezone 
+  // add dns server
+  
