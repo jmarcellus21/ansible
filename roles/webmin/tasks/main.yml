@@ -33,13 +33,26 @@
     deb: http://prdownloads.sourceforge.net/webadmin/webmin_{{ release_version }}_all.deb
   become: yes
 
+- name: Configure global git name
+  git_config:
+    name: user.name
+    scope: global
+    value: 'ansible-test'
+
+- name: Configure global git email
+  git_config:
+    name: user.email
+    scope: global
+    value: 'ansible-test@example.com'
+  become: yes
+ 
 - name: Copy webmin backup script
   copy:
     src: ../files/webmin-backup.sh
     dest: /scripts/
     group: root
     owner: root
-    mode: u=rwx,g=rx,o=rw
+    mode: u=rwx,g=rx,o=rx
   become: yes
 
 - name: Ensure root .ssh directory exists
@@ -82,7 +95,8 @@
     hour: "0"
     minute: "5"
     user: root
-    job: "/scripts/webmin-backups.sh"
+    job: "/scripts/webmin-backup.sh"
+    disabled: yes
   become: yes
 
 - name: Upgrade all packages to the latest version
