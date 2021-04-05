@@ -4,10 +4,6 @@
   hosts: all
 
   tasks:
-  # - name: sample task
-  #   ansible.builtin.shell: 
-  #     cmd: hostname
-
   - name: Upgrade all packages to the latest version
     apt:
       name: "*"
@@ -23,6 +19,14 @@
       - bash-completion
     become: yes
 
-  // add timezone 
+  - name: Set timezone to America/New_York
+    timezone:
+      name: America/New_York
+    become: yes
+
+  - name: Reboot server
+    reboot:
+    become: yes
+
   // add dns server
   
