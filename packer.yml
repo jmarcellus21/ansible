@@ -24,9 +24,5 @@
       name: America/New_York
     become: yes
 
-  - name: Reboot server
-    reboot:
-    become: yes
-
   #  add dns server
   
