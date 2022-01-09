@@ -24,5 +24,35 @@
       name: America/New_York
     become: yes
 
-  #  add dns server
+  - name: Download live-resize script from GitHub
+    uri:
+      url: 'https://api.github.com/repos/jmarcellus21/install-scripts/contents/global/disk-resize.sh'
+      return_content: yes
+      status_code: 200,304
+      mode: u=rwx,g=rx,o=rx
+      owner: root
+      dest: /usr/local/bin/live-resize
+      headers:
+        Accept: application/vnd.github.v3.raw
+        Authorization: token {{ github_api_token }}
+    become: yes
+
+    # create systemd service file
+  - name: Copy service config file
+    template:
+      src: files/live-resize.service
+      dest: /etc/systemd/system/
+      owner: root
+      group: root
+      mode: u=rw,g=r,o=r
+    become: yes
+
+  # reload, start, and enable service
+  - name: Reload live-resize service config
+    systemd:
+      name: live-resize
+      daemon_reload: yes
+      state: started
+      enabled: yes
+    become: yes
   
