@@ -1,0 +1,9 @@
+[Unit]
+Description=Service to resize disk upon boot.
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/live-resize
+
+[Install]
+WantedBy=multi-user.target
