@@ -1,0 +1,5 @@
+---
+all:
+  vars:
+    ansible_user: jerry
+    ansible_ssh_extra_args: -o "StrictHostKeyChecking=no"

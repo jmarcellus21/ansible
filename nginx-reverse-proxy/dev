@@ -1,0 +1,9 @@
+[docker]
+dev-docker-host ansible_host=192.168.1.233
+
+[dev:children]
+docker
+
+[all:vars]
+ansible_user=jerry
+ansible_ssh_extra_args="-o 'StrictHostKeyChecking=no'"

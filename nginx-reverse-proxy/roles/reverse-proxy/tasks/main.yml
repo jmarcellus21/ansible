@@ -1,0 +1,178 @@
+- debug:
+    msg: "{{subdomain}}unifi.astrolabs.io"
+
+- name: Set shared variables values
+  set_fact:
+    wikijs_db_user: 'wikijs'
+    wikijs_db_name: 'wiki'
+    wikijs_db_passwd: "{{ vault_wikijs_db_passwd }}"
+    postgres_root_user_passwd: "{{ vault_postgres_root_user_passwd }}"
+
+- name: Install software prerequisites
+  ansible.builtin.apt:
+    name:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+    - python3-pip
+    update_cache: yes
+  become: yes
+
+- name: Ensure Docker SDK and docker compose for python are is installed
+  ansible.builtin.pip:
+    name: "{{item}}"
+  loop:
+    - docker
+    - docker-compose
+    - dnspython
+
+- name: Add an APT signing key for Docker repo
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    keyring: /usr/share/keyrings/docker-archive-keyring.gpg
+
+- name: Set system architecture variable (amd64/x86_64)
+  ansible.builtin.set_fact:
+    system_architecture: amd64
+  when: ansible_facts.architecture == 'x86_64'
+
+- name: Set system architecture variable (armhf/aarch64)
+  ansible.builtin.set_fact:
+    system_architecture: armhf
+  when: ansible_facts.architecture == 'aarch64'
+
+- name: Add specified repository into sources list using specified filename
+  ansible.builtin.apt_repository:
+    repo: deb [arch={{system_architecture}} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu   {{ansible_distribution_release}} stable
+    state: present
+    filename: docker
+
+- name: Install docker
+  ansible.builtin.apt:
+    name:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    update_cache: yes
+  become: yes
+
+- name: Ensure docker service is started and enabled
+  ansible.builtin.service:
+    name: docker
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Ensure containerd service is started and enabled
+  ansible.builtin.service:
+    name: containerd
+    enabled: yes
+    state: started
+  become: yes
+
+- name: Add jerry user to docker group
+  ansible.builtin.user:
+    name: jerry
+    append: yes
+    groups: docker
+
+- name: Download docker-compose from GitHub
+  ansible.builtin.uri:
+    url: 'https://github.com/docker/compose/releases/download/1.29.2/docker-compose-{{ansible_system}}-{{ansible_architecture}}'
+    return_content: yes
+    status_code: 200,304
+    mode: u=rwx,g=rx,o=rx
+    dest: /usr/local/bin/docker-compose
+  become: yes
+
+- name: reset ssh connection
+  meta: reset_connection
+
+- name: Add A records for proxied services"
+  community.general.nsupdate:
+    key_name: "ddns-update"
+    key_secret: "jKx67CD5y16V29Gp3P/3uw=="
+    server: "192.168.1.3"
+    zone: "astrolabs.io"
+    record: "{{subdomain}}{{ item }}"
+    value: "{{ ansible_facts.default_ipv4.address }}"
+    type: "A"
+  loop:
+    - adminer
+    - rancher
+    - unifi
+    - wiki
+
+- name: Generate Diffie-Hellman parameters with the default size (4096 bits)
+  community.crypto.openssl_dhparam:
+    path: /etc/nginx-reverse-proxy/dhparams.pem
+    
+- name: Ensure reverse proxy directory exists
+  ansible.builtin.file:
+    path: /etc/nginx-reverse-proxy/{{ item }}
+    state: directory
+  loop:
+    - conf.d
+    - conf.d/sites-enabled
+    - conf.d/sites-available
+    - backend-services
+
+- name: "Copy nginx & SSL configuration files"
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/nginx-reverse-proxy/{{ item.dest }}"
+  loop:
+    - { src: '../files/nginx.conf', dest: 'nginx.conf' }
+    - { src: '../files/common.conf', dest: 'common.conf' }
+    - { src: '../files/common_location.conf', dest: 'common_location.conf' }
+    - { src: '../files/ssl.conf', dest: 'ssl.conf' }
+    - { src: '../files/redirect.conf', dest: 'conf.d/sites-enabled/redirect.conf' }
+    - { src: '../files/Dockerfile', dest: 'Dockerfile' }
+    - { src: '../templates/docker-compose.yaml', dest: 'docker-compose.yaml' }
+    - { src: '../templates/rancher.conf', dest: 'conf.d/sites-available/rancher.conf' }
+    - { src: '../templates/unifi.conf', dest: 'conf.d/sites-available/unifi.conf' }
+    - { src: '../templates/adminer.conf', dest: 'conf.d/sites-available/adminer.conf' }
+    - { src: '../templates/wiki.conf', dest: 'conf.d/sites-available/wiki.conf' }
+    - { src: '../../../shared-files/wildcard-cert.crt', dest: 'cert.crt' }
+    - { src: '../../../shared-files/wildcard-cert.key', dest: 'cert.key' }
+  become: yes
+
+- name: Create symlink between sites-available and sites-enabled
+  ansible.builtin.file:
+    src: "/etc/nginx-reverse-proxy/conf.d/sites-enabled"
+    dest: "/etc/nginx-reverse-proxy/conf.d/sites-available"
+    state: link
+    force: yes
+
+# run docker build for custom container
+- name: Build nginx-proxy image
+  community.docker.docker_image:
+    name: nginx-reverse-proxy
+    build:
+      path: /etc/nginx-reverse-proxy
+      pull: yes
+    source: build
+    tag: latest
+
+- name: Ensure db directory exists
+  ansible.builtin.file:
+    path: /etc/postgres/{{ item }}
+    state: directory
+  loop:
+    - docker-entrypoint-initdb.d
+
+- name: "Copy db init scripts"
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/postgres/docker-entrypoint-initdb.d/{{ item.dest }}"
+    mode: u=rwx,g=rx,o=rx
+  loop:
+    - { src: '../templates/init-wikijs-db.sh', dest: 'init-wikijs-db.sh' }
+
+# run docker-compose
+- name: Create and start services
+  community.docker.docker_compose:
+    project_src: /etc/nginx-reverse-proxy
+    state: present

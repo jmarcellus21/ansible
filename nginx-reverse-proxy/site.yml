@@ -1,0 +1,10 @@
+---
+- name: Configure docker host
+  hosts:
+    - docker
+  roles:
+    - common
+    - reverse-proxy
+  vars_files:
+    - ./vars/vault.yml
+  become: yes

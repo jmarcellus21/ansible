@@ -1,5 +1,0 @@
----  
-- name: get release_version
-  include_tasks: ../../common/handlers/release-version.yml
-  vars:
-    repo_name: "webmin/webmin"

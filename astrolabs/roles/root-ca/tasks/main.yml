@@ -1,0 +1,53 @@
+---
+- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
+  community.crypto.openssl_privatekey:
+    path: /root/certs/client-certs/wildcard-cert.key
+
+- name: Generate an OpenSSL Certificate Signing Request
+  community.crypto.openssl_csr:
+    path: /root/certs/client-certs/wildcard-cert.csr
+    privatekey_path: /root/certs/client-certs/wildcard-cert.key
+    subject_alt_name: 'DNS:*.astrolabs.io,DNS:localhost,IP:127.0.0.1'
+    common_name: '*.astrolabs.io'
+    country_name: 'US'
+    locality_name: 'Orlando'
+    organization_name: 'Astro Labs'
+    organizational_unit_name: 'R&D'
+    state_or_province_name: 'FL'
+
+- name: Generate an OpenSSL certificate signed with your own CA certificate
+  community.crypto.x509_certificate:
+    path: /root/certs/client-certs/wildcard-cert.crt
+    csr_path: /root/certs/client-certs/wildcard-cert.csr
+    ownca_path: /root/certs/ca.crt
+    ownca_privatekey_path: /root/certs/ca.key
+    provider: ownca
+    ownca_privatekey_passphrase: "{{vault_ownca_privatekey_passphrase}}"
+    ownca_not_after: '+825d'
+
+- name: Store cert private key file locally
+  ansible.builtin.fetch:
+    src: /root/certs/client-certs/wildcard-cert.key
+    dest: roles/root-ca/files/wildcard-cert.key
+    flat: yes
+
+- name: Store cert public key file locally
+  ansible.builtin.fetch:
+    src: /root/certs/client-certs/wildcard-cert.crt
+    dest: roles/root-ca/files/wildcard-cert.crt
+    flat: yes
+
+- name: Store CA cert public key file locally
+  ansible.builtin.fetch:
+    src: /root/certs/ca.crt
+    dest: roles/root-ca/files/ca.crt
+    flat: yes
+
+- name: Encrypt certificate files using Ansible vault
+  ansible.builtin.command: ansible-vault encrypt roles/root-ca/files/{{item}}
+  loop:
+    - wildcard-cert.key
+    - wildcard-cert.crt
+    - ca.crt
+  delegate_to: 127.0.0.1
+  become: no

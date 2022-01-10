@@ -1,0 +1,9 @@
+[Unit]
+Description=Service to scan for changes to VM disks.
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/disk-resize-monitor
+
+[Install]
+WantedBy=multi-user.target

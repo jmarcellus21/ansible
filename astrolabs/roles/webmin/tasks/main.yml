@@ -1,0 +1,103 @@
+---
+- name: Install Webmin dependencies
+  apt:
+    name:
+    - apt-transport-https
+    - perl
+    - libnet-ssleay-perl
+    - openssl
+    - libauthen-pam-perl
+    - libpam-runtime
+    - libio-pty-perl
+    - apt-show-versions
+    - python3
+    - unzip
+    - git
+    - bind9
+    - bind9utils
+    - isc-dhcp-server
+    - python3-pip
+    update_cache: yes
+  become: yes
+
+- name: Ensure github release module is installed
+  pip:
+    name: github3.py
+
+- name: Get latest release version
+  github_release:
+    user: webmin
+    repo: webmin
+    action: latest_release
+  register: release_version
+
+- name: Install Webmin
+  apt:
+    deb: http://prdownloads.sourceforge.net/webadmin/webmin_{{ release_version.tag }}_all.deb
+  become: yes
+
+- name: Configure global git name
+  git_config:
+    name: user.name
+    scope: global
+    value: 'ansible-test'
+
+- name: Configure global git email
+  git_config:
+    name: user.email
+    scope: global
+    value: 'ansible-test@example.com'
+  become: yes
+ 
+- name: Copy webmin backup script
+  copy:
+    src: ../files/webmin-backup.sh
+    dest: /scripts/
+    group: root
+    owner: root
+    mode: u=rwx,g=rx,o=rx
+  become: yes
+
+- name: Ensure root .ssh directory exists
+  file:
+    path: /root/.ssh/
+    state: directory
+    owner: root
+    group: root
+    mode: u=rwx
+  become: yes
+
+- name: Copy SSH private key
+  copy:
+    src: ../files/private-key.key
+    dest: /root/.ssh/id_rsa
+    group: root
+    owner: root
+    mode: 0600
+  become: yes
+
+- name: Copy SSH public key
+  copy:
+    src: ../files/public-key.pub
+    dest: /root/.ssh/id_rsa.pub
+    group: root
+    owner: root
+    mode: u=rw,g=r,o=r
+  become: yes
+
+- name: Clone webmin backup repo 
+  git:
+    repo: git@github.com:jmarcellus21/webmin-backups.git
+    dest: /webmin-backups
+    accept_hostkey: yes
+  become: yes
+
+- name: Create cron job for daily config backups
+  cron:
+    name: "Daily Webmin DNS & DHCP backups"
+    hour: "0"
+    minute: "5"
+    user: root
+    job: "/scripts/webmin-backup.sh"
+    disabled: yes
+  become: yes

@@ -1,0 +1,35 @@
+---
+# - name: Configure promox
+#   hosts:
+#     - proxmox
+#   roles:
+#     - common
+#     - proxmox
+#   become: yes
+
+# - name: Configure draco0 (DNS & DHCP server)
+#   hosts:
+#     - ns1
+#   roles:
+#     - common
+#     - webmin
+#   become: yes
+        
+- name: Configure root CA server & certs
+  hosts:
+    - root-ca
+  roles:
+    - common
+    - root-ca
+  vars_files:
+    - ./vars/vault.yml
+  become: yes
+  ignore_unreachable: yes
+
+# - name: Configure raspis
+#   hosts:
+#     - raspi
+#   roles:
+#     - common
+#   become: yes
+#   serial: 2

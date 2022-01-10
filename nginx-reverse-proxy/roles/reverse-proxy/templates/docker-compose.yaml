@@ -1,0 +1,84 @@
+version: '3.8'
+
+# TO-DO: add restart directives to each service
+services:
+  reverse:
+    container_name: reverse
+    hostname: reverse
+    image: nginx-reverse-proxy:latest
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /etc/ssl/private:/etc/ssl/private
+      - /etc/nginx-reverse-proxy/conf.d:/etc/nginx/conf.d
+
+  rancher:
+    container_name: rancher
+    hostname: rancher
+    privileged: true
+    image: rancher/rancher:stable
+    restart: always
+    ports:
+      - 2000:80
+      - 2001:443
+    volumes:
+      - /etc/ssl/private:/etc/rancher/ssl
+
+  # configure unifi controller, Consul, Wiki JS
+  unifi: # TO-DO: use non-root user
+    container_name: unifi
+    hostname: unifi
+    image: jacobalberty/unifi:v6
+    restart: always
+    init: true
+    network_mode: "host"
+    environment: 
+      TZ: America/New_York
+    # sysctls:
+    #   net.ipv4.ip_unprivileged_port_start: 0
+    volumes:
+      - unifi:/unifi
+
+  postgres:
+    container_name: postgres
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: {{postgres_root_user_passwd}}
+    volumes: 
+      - /etc/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+  adminer:
+    container_name: adminer
+    image: adminer:4
+    restart: always
+    ports:
+      - 2010:8080
+    environment:
+      ADMINER_DESIGN: dracula
+      ADMINER_DEFAULT_SERVER: postgres
+
+  wiki:
+    container_name: wikijs
+    image: requarks/wiki:2
+    depends_on:
+      - postgres
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: {{wikijs_db_user}}
+      DB_PASS: {{wikijs_db_passwd}}
+      DB_NAME: {{wikijs_db_name}}
+    restart: unless-stopped
+    ports:
+      - 2015:3000
+      - 2016:3443
+
+volumes:
+  unifi:
+    name: unifi
+  postgres:
+    name: postgres

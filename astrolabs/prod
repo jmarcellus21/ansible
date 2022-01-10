@@ -1,0 +1,29 @@
+[proxmox]
+vulcan ansible_host=192.168.1.11 ansible_user="{{proxmox_user | default('jerry')}}"
+# proxmox SSH user can be passed in via extra-vars flag
+# i.e., set user to root '-e proxmox_user=root'
+
+[critical_infra]
+ns1
+root-ca ansible_host=192.168.1.232
+
+[antilles]
+antilles[1:6]
+
+[draco]
+draco[1:3]
+ns1 ansible_host=draco0
+
+[raspi:children]
+antilles
+draco
+
+[raspi:vars]
+ansible_user="{{raspi_user | default('jerry')}}"
+# raspberry pi SSH user can be passed in via extra-vars flag
+# i.e., set user to pi '-e raspi_user=pi'
+
+[all:vars]
+ansible_user="jerry"
+ansible_ssh_extra_args="-o 'StrictHostKeyChecking=no'"
+ansible_python_interpreter="/usr/bin/python3"

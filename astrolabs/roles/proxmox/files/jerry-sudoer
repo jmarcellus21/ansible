@@ -1,0 +1,2 @@
+# allow jerry user passwordless sudo access to all commands
+jerry ALL=(ALL) NOPASSWD:ALL

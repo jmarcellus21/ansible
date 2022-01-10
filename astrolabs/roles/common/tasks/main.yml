@@ -1,0 +1,77 @@
+---
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+  become: yes
+  register: hostname
+
+- name: Set hostname in /etc/hosts to match real hostname
+  replace:
+    path: /etc/hosts
+    after: '127.0.1.1\s+'
+    regexp: '(.+)'
+    before: '\n'
+    replace: '{{ inventory_hostname }}'
+  become: yes
+
+- name: Ensure jerry user exists
+  user:
+    name: jerry
+    create_home: yes
+    shell: /bin/bash
+    groups:
+    - sudo
+    - root
+    append: yes
+    state: present
+  become: yes
+
+- name: Ensure public SSH keys are added to authorized_keys file
+  authorized_key:
+    user: jerry
+    state: present
+    key: "{{ lookup('file','../files/macbook-public-key.pub') }}"
+  become: yes
+
+- name: Upgrade all packages to the latest version
+  apt:
+    name: "*"
+    state: latest
+    update_cache: yes
+  become: yes
+
+- name: Ensure standard utilities are installed
+  apt:
+    name:
+    - vim
+    - mlocate
+    - bash-completion
+    - tree
+    - net-tools
+    - cloud-guest-utils
+    - sudo
+  become: yes
+
+- name: Remove useless packages from the cache and dependencies that are no longer required
+  apt:
+    autoclean: yes
+    autoremove: yes
+  become: yes
+
+- name: Set timezone to America/New_York
+  timezone:
+    name: America/New_York
+  become: yes
+  register: timezone
+
+- name: Check if reboot required
+  stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file
+
+- name: Reboot if required
+  command: "true"
+  notify: Reboot
+  when: (reboot_required_file.stat.exists == true or timezone.changed == true or hostname.changed == true) and ('critical_infra' not in group_names)
+
+- meta: flush_handlers

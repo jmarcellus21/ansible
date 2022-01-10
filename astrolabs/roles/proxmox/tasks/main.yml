@@ -1,0 +1,37 @@
+---
+  - name: Enable passwordless sudo for jerry user
+    template:
+      src: files/jerry-sudoer
+      dest: /etc/sudoers.d/jerry
+      owner: root
+      group: root
+      mode: u=r,g=r
+    become: yes
+
+  - name: Copy disk-resize-monitor script
+    template:
+      src: files/disk-resize-monitor.sh
+      dest: /usr/local/bin/disk-resize-monitor
+      owner: root
+      group: root
+      mode: u=rwx,g=rx,o=rx
+    become: yes
+
+  # create systemd service file
+  - name: Copy service config file
+    template:
+      src: files/disk-resize-monitor.service
+      dest: /etc/systemd/system/
+      owner: root
+      group: root
+      mode: u=rw,g=r,o=r
+    become: yes
+
+  # reload, start, and enable service
+  - name: Reload disk-resize-monitor service config
+    systemd:
+      name: disk-resize-monitor
+      daemon_reload: yes
+      state: started
+      enabled: yes
+    become: yes
